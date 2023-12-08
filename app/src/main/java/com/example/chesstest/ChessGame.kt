@@ -14,24 +14,21 @@ import javax.net.ssl.HttpsURLConnection
 object ChessGame {
 
     // OBJECT PROPERTIES
+    var startedmatch =0 // number of started matches
+
     var stockfishGameEnded: Boolean = false
     var localGameEnded: Boolean = false
     var resettedGame: Boolean = false
     var firstMove: Boolean = true
-    var startedmatch =0
 
     var matchId: Int = 404
-    var waitingForAdversary: Boolean = true
     var gameInProgress: String = "" //LOCAL, STOCKFISH, ONLINE
-    var myOnlineColor = ""
-    var isOnlineMate = "false"
     var isLocalMate= "false"
 
     var fromSquareHighlight: Square? = null
     var toSquareHighlight: Square? = null
 
     var piecesBox = mutableSetOf<ChessPiece>()
-    var evaluationsArray = mutableListOf<Int>()
 
     val lightColor: Int = Color.parseColor("#F2E6D6") //"#EEEEEE"
     val darkColor: Int = Color.parseColor("#D8B27E")  //"#BBBBBB"
@@ -51,10 +48,12 @@ object ChessGame {
         piecesBox.add(piece)
     }
 
+    //pieceAt returns the piece at the given square by calling pieceAt(square.col, square.row)
     fun pieceAt(square: Square): ChessPiece? {
         return pieceAt(square.col, square.row)
     }
-
+    //overloaded pieceAt checks for the piece at the given column and row inside piecesBox
+    //it returns a ChessPiece object or null if no piece is found
     fun pieceAt(col: Int, row: Int): ChessPiece? {
         for (piece in piecesBox) {
             if (col == piece.col && row == piece.row) {
@@ -201,20 +200,6 @@ object ChessGame {
         return desc
     }
 
-    fun pgnBoard(): String {
-        var desc = " \n"
-        desc += "  a b c d e f g h\n"
-        for (row in 7 downTo 0) {
-            desc += "${row + 1}"
-            desc += boardRow(row)
-            desc += " ${row + 1}"
-            desc += "\n"
-        }
-        desc += "  a b c d e f g h"
-
-        return desc
-    }
-
     override fun toString(): String {
         var desc = " \n"
         for (row in 7 downTo 0) {
@@ -227,48 +212,12 @@ object ChessGame {
         return desc
     }
 
-    fun convertMoveStringToSquares(move: String): Array<Square> {
-
-        assert(move.length >= 4)  //è 5 in caso di promozione! (es: e2f1q)
-        var fromCol = 0
-        when (move.substring(0, 1)) {
-            "a" -> fromCol = 0
-            "b" -> fromCol = 1
-            "c" -> fromCol = 2
-            "d" -> fromCol = 3
-            "e" -> fromCol = 4
-            "f" -> fromCol = 5
-            "g" -> fromCol = 6
-            "h" -> fromCol = 7
-        }
-        val fromRow = (move.substring(1, 2).toInt()-1)
-
-        var toCol = 0
-        val thirdChar = move.substring(2, 3)
-        when (thirdChar) {
-            "a" -> toCol = 0
-            "b" -> toCol = 1
-            "c" -> toCol = 2
-            "d" -> toCol = 3
-            "e" -> toCol = 4
-            "f" -> toCol = 5
-            "g" -> toCol = 6
-            "h" -> toCol = 7
-        }
-        val toRow = (move.substring(3, 4).toInt()-1)
-
-        val fromSquare = Square(fromCol, fromRow)
-        val toSquare = Square(toCol, toRow)
-
-        return arrayOf(fromSquare, toSquare)
-    }
-
     fun promotion(movingPiece:ChessPiece?, fromRow:Int, fromCol:Int, row:Int, col:Int):String {
         if (movingPiece!!.chessman == Chessman.PAWN) {
             if (movingPiece.player == Player.WHITE && fromRow==6 && row==7) {
-                ChessGame.piecesBox.remove(movingPiece)
+                piecesBox.remove(movingPiece)
 
-                ChessGame.addPiece(
+                addPiece(
                     movingPiece.copy(
                         chessman = Chessman.QUEEN,
                         resID = R.drawable.chess_qlt60,
@@ -279,9 +228,9 @@ object ChessGame {
                 return "Q"
             }
             else if (movingPiece.player == Player.BLACK && fromRow==1 && row==0) {
-                ChessGame.piecesBox.remove(movingPiece)
+                piecesBox.remove(movingPiece)
 
-                ChessGame.addPiece(
+                addPiece(
                     movingPiece.copy(
                         chessman = Chessman.QUEEN,
                         resID = R.drawable.chess_qdt60,
@@ -290,70 +239,6 @@ object ChessGame {
                     )
                 )
                 return "q"
-            }
-        }
-        return ""
-    }
-
-    fun onlinePromotion(movingPiece:ChessPiece?, fromRow:Int, fromCol:Int, row:Int, col:Int):String {
-        if (myOnlineColor == "BLACK") {
-            if (movingPiece!!.chessman==Chessman.PAWN) {
-                if (movingPiece.player==Player.WHITE && fromRow==6 && row==7) {
-                    piecesBox.remove(movingPiece)
-
-                    addPiece(
-                        movingPiece.copy(
-                            chessman = Chessman.QUEEN,
-                            resID = R.drawable.chess_qlt60,
-                            col = ICBO(col),
-                            row = ICBO(row)
-                        )
-                    )
-                    return "Q"
-
-                } else if (movingPiece.player==Player.BLACK && fromRow==1 && row==0) {
-                    piecesBox.remove(movingPiece)
-
-                    addPiece(
-                        movingPiece.copy(
-                            chessman = Chessman.QUEEN,
-                            resID = R.drawable.chess_qdt60,
-                            col = ICBO(col),
-                            row = ICBO(row)
-                        )
-                    )
-                    return "q"
-                }
-            }
-
-        } else {
-            if (movingPiece!!.chessman==Chessman.PAWN) {
-                if (movingPiece.player==Player.WHITE && fromRow == 6 && row == 7) {
-                    piecesBox.remove(movingPiece)
-
-                    ChessGame.addPiece(
-                        movingPiece.copy(
-                            chessman = Chessman.QUEEN,
-                            resID = R.drawable.chess_qlt60,
-                            col = col,
-                            row = row
-                        )
-                    )
-                    return "Q"
-
-                } else if (movingPiece.player==Player.BLACK && fromRow==1 && row==0) {
-                    ChessGame.piecesBox.remove(movingPiece)
-
-                    ChessGame.addPiece(
-                        movingPiece.copy(
-                            chessman = Chessman.QUEEN,
-                            resID = R.drawable.chess_qdt60,
-                            col = col,
-                            row = row
-                        )
-                    )
-                    return "q"
-                }
             }
         }
         return ""
@@ -378,23 +263,6 @@ object ChessGame {
         return ""
     }
 
-    private fun ICBO(value: Int) : Int {
-
-        var converted = 9
-
-        when (value) {
-            0 -> converted = 7
-            1 -> converted = 6
-            2 -> converted = 5
-            3 -> converted = 4
-            4 -> converted = 3
-            5 -> converted = 2
-            6 -> converted = 1
-            7 -> converted = 0
-        }
-        return converted
-    }
-
     fun removeEnpassantPawn(movingPiece:ChessPiece?, fromRow:Int, fromCol:Int, row:Int, col:Int) {
         if (movingPiece!!.chessman==Chessman.PAWN) {
             if(fromCol!=col){
@@ -404,10 +272,4 @@ object ChessGame {
             }
         }
     }
-
-
-
-
-
-
 }

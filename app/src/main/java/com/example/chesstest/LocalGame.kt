@@ -1,18 +1,15 @@
 package com.example.chesstest
 
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
-import android.view.Menu
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 
-class LocalGame : AppCompatActivity(), ChessDelegate {
+class LocalGame : AppCompatActivity(), ChessDelegate, GameEventListener {
 
     private lateinit var chessView: ChessView
     private lateinit var resetButton: Button
@@ -22,9 +19,6 @@ class LocalGame : AppCompatActivity(), ChessDelegate {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        ChessGame.lettere= arrayOf("a","b","c","d","e","f","g","h")
-        ChessGame.numeri= arrayOf("8","7","6","5","4","3","2","1")
 
         setContentView(R.layout.activity_local_game)
 
@@ -43,6 +37,7 @@ class LocalGame : AppCompatActivity(), ChessDelegate {
 
         ChessGame.startedmatch=ChessGame.startedmatch+1
         chessView.chessDelegate = this
+        chessView.gameEventListener = this
 
         resetButton.setOnClickListener {
             ChessGame.reset(ChessGame.matchId)
@@ -71,13 +66,21 @@ class LocalGame : AppCompatActivity(), ChessDelegate {
         }
     }
 
-    private fun drawTextAt(canvas: Canvas, col: Int, row: Int) {
-        val paintThin = Paint()
-        val padding = 30f
-        paintThin.color = Color.parseColor("#999999")
-        paintThin.strokeWidth = 3f
-        paintThin.textSize = 60f
-        canvas.drawText("s", +50f, 50f, paintThin)
+    override fun onWinDetected(winner: String) {
+        showWinDialog(winner)
+    }
+
+    private fun showWinDialog(winner: String) {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("$winner won!")
+        builder.setPositiveButton("OK") { _, _ ->
+            resetButton.performClick()
+        }
+
+        builder.setCancelable(false) // Prevent dismissing the dialog by tapping outside
+
+        val dialog = builder.create()
+        dialog.show()
     }
 
     override fun movePiece(from: Square, to: Square) {}
